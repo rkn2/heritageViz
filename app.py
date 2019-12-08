@@ -24,7 +24,7 @@ def serve_layout(mc):  # definition of app, called when refreshed page, just lay
                 type='text',
                 placeholder='YYYY-MM-DD',
                 value=None,
-                debounce=True
+                debounce=True  # dont submit result until clicked off text box
             ),
             html.P('Start time'),
             dcc.Input(
@@ -79,10 +79,20 @@ app.layout = serve_layout(db_handler)  # sets layout to come from serve_layout w
 def update_figure(dropdown_value, start_date, start_time, end_date, end_time):
     try:
         start_datetime = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        try:
+            hour_minute = datetime.datetime.strptime(start_time, '%H:%M')
+            start_datetime += datetime.timedelta(hours=hour_minute.hour, minutes=hour_minute.minute)
+        except:
+            pass
     except:
         start_datetime = None
     try:
         end_datetime = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+        try:
+            hour_minute = datetime.datetime.strptime(end_time, '%H:%M')
+            end_datetime += datetime.timedelta(hours=hour_minute.hour, minutes=hour_minute.minute)
+        except:
+            pass
     except:
         end_datetime = None
     if dropdown_value is None:
