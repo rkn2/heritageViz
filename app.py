@@ -1,57 +1,77 @@
+# dash and plotting
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import arango
-import numpy as np
-# Initialize the ArangoDB client.
-client = arango.ArangoClient(hosts='http://localhost:8529')
+import plotly.graph_objs as go
+# databasing
+import pymongo
+# utilities
+import datetime
+import json
 
-# Connect to "_system" database as root user.
-# This returns an API wrapper for "_system" database.
-sys_db = client.db('_system', username='root', password='')
 
-# Connect to "test" database as root user.
-# This returns an API wrapper for "test" database.
-db = client.db('test', username='root', password='')
+class MongoHandler(object):
+    def __init__(self):
+        self.conf = json.load(open('mongoDB.conf', 'r'))
+        self.client = pymongo.MongoClient(self.conf['MONGODB_URI'])
+        self.db = self.client[self.conf['MONGODB_DATABASE']]
+        self.col = self.db[self.conf['MONGODB_COLLECTION']]
 
-# Execute an AQL query. This returns a result cursor.
-cursor = db.aql.execute('FOR doc IN ResearchBuilding RETURN doc')
+    def fetch_sensor_name_and_id(self):
+        name_and_id = [{'label': x['name'], 'value': x['name']} for x in self.col.find({}, {'name': 1})]
+        return name_and_id
 
-# Iterate through the cursor to retrieve the documents.
-rooms = [document for document in cursor]
+    def fetch_sensor_data(self, name):
+        docs = [x for x in self.col.find({'name': name})]
+        plot_data = []
+        for doc in docs:
+            label = doc['name']
+            data = doc[label]
+            timestamp = doc['timestamp']
+            times = [datetime.datetime.strptime(x, '%c') for x in timestamp]
+            plot_data.append({'x': times, 'y': data, 'name': label})
+        return plot_data
 
-db2plot = lambda room, var : {'x': np.array(room['temperature'])[:,0],
-                              'y': np.array(room['temperature'])[:,1],
-                              'type': 'scatter', 'mode': 'lines+markers',
-                              'name': room['name'] + var}
+    def upload(self, docs):
+        self.col.insert_many(docs)
 
-# from dash plotly
 
+def serve_layout(mc):
+    layout = html.Div(children=[
+        html.H1(children='Visualize sensor data.'),
+        dcc.Dropdown(
+            id='sensor-name-dropdown',
+            options=mc.fetch_sensor_name_and_id(),
+            multi=True
+        ),
+        html.Div(id='dd-output-container'),
+        dcc.Graph(
+            id='sensor-data-graph',
+            figure=go.Figure(data=[], layout=go.Layout(title='Sensor data'))
+        )
+    ])
+    return layout
+
+
+db_handler = MongoHandler()
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+server = app.server
+app.layout = serve_layout(db_handler)
 
-app.layout = html.Div(children=[
-    html.H1(children='Hello Becca'),
 
-    html.Div(children='''
-        Dash: A web application framework for Python.
-    '''),
+@app.callback(
+    dash.dependencies.Output('sensor-data-graph', 'figure'),
+    [dash.dependencies.Input('sensor-name-dropdown', 'value')])
+def update_figure(value):
+    if value is None:
+        return go.Figure(data=[], layout=go.Layout(title='Sensor data'))
+    data = []
+    for selection in value:
+        data += db_handler.fetch_sensor_data(selection)
+    fig = go.Figure(data=data, layout=go.Layout(title='Sensor data'))
+    return fig
 
-    dcc.Graph(
-        id='example-graph',
-        figure={
-            'data': [db2plot(room, 'temperature') for room in rooms],
-                #[
-                # {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'SF'},
-                # {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': u'Montreal'},
-            #],
-            'layout': {
-                'title': 'Dash Data Visualization'
-            }
-        }
-    )
-])
 
 if __name__ == '__main__':
-    app.run_server(debug=True) #hot reloading so it auto updates
+    app.run_server(debug=True)
