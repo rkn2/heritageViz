@@ -1,6 +1,5 @@
 import pandas as pd
-from app import MongoHandler
-
+from database_utilities import MongoHandler
 
 def convert_to_base(series):
     if 'float' in str(series.dtype):

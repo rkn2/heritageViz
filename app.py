@@ -4,39 +4,12 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 # databasing
-import pymongo
+from database_utilities import MongoHandler
 # utilities
 import datetime
-import json
 
 
-class MongoHandler(object):
-    def __init__(self):
-        self.conf = json.load(open('mongoDB.conf', 'r'))
-        self.client = pymongo.MongoClient(self.conf['MONGODB_URI'])
-        self.db = self.client[self.conf['MONGODB_DATABASE']]
-        self.col = self.db[self.conf['MONGODB_COLLECTION']]
-
-    def fetch_sensor_name_and_id(self):
-        name_and_id = [{'label': x['name'], 'value': x['name']} for x in self.col.find({}, {'name': 1})]
-        return name_and_id
-
-    def fetch_sensor_data(self, name):
-        docs = [x for x in self.col.find({'name': name})]
-        plot_data = []
-        for doc in docs:
-            label = doc['name']
-            data = doc[label]
-            timestamp = doc['timestamp']
-            times = [datetime.datetime.strptime(x, '%c') for x in timestamp]
-            plot_data.append({'x': times, 'y': data, 'name': label})
-        return plot_data
-
-    def upload(self, docs):
-        self.col.insert_many(docs)
-
-
-def serve_layout(mc):
+def serve_layout(mc):  # definition of app, called when refreshed page, just layout = static
     layout = html.Div(children=[
         html.H1(children='Visualize sensor data.'),
         dcc.Dropdown(
@@ -44,31 +17,80 @@ def serve_layout(mc):
             options=mc.fetch_sensor_name_and_id(),
             multi=True
         ),
-        html.Div(id='dd-output-container'),
+        html.Div(children=[
+            html.P('Start date'),
+            dcc.Input(
+                id='date-picker-start-date',
+                type='text',
+                placeholder='YYYY-MM-DD',
+                value=None,
+                debounce=True
+            ),
+            html.P('Start time'),
+            dcc.Input(
+                id='date-picker-start-time',
+                type='text',
+                placeholder='HH:MM',
+                value=None,
+                debounce=True
+            ),
+            html.P('End date'),
+            dcc.Input(
+                id='date-picker-end-date',
+                type='text',
+                placeholder='YYYY-MM-DD',
+                value=None,
+                debounce=True
+            ),
+            html.P('End time'),
+            dcc.Input(
+                id='date-picker-end-time',
+                type='text',
+                placeholder='HH:MM',
+                value=None,
+                debounce=True
+
+            ),
+        ]),
         dcc.Graph(
             id='sensor-data-graph',
             figure=go.Figure(data=[], layout=go.Layout(title='Sensor data'))
-        )
+        ),
     ])
     return layout
 
 
-db_handler = MongoHandler()
+db_handler = MongoHandler()  # initialize mongo connection
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)  # defines empty dash app
 server = app.server
-app.layout = serve_layout(db_handler)
+app.layout = serve_layout(db_handler)  # sets layout to come from serve_layout with mongo handler passed in to it
 
 
+# associates following function with a dash app callback
 @app.callback(
-    dash.dependencies.Output('sensor-data-graph', 'figure'),
-    [dash.dependencies.Input('sensor-name-dropdown', 'value')])
-def update_figure(value):
-    if value is None:
+    dash.dependencies.Output('sensor-data-graph', 'figure'),  # using id from dcc.graph above
+    [dash.dependencies.Input('sensor-name-dropdown', 'value'),
+     dash.dependencies.Input('date-picker-start-date', 'value'),
+     dash.dependencies.Input('date-picker-start-time', 'value'),
+     dash.dependencies.Input('date-picker-end-date', 'value'),
+     dash.dependencies.Input('date-picker-end-time', 'value')])
+# value comes from input, can have multiple values from call back since its a list
+def update_figure(dropdown_value, start_date, start_time, end_date, end_time):
+    try:
+        start_datetime = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+    except:
+        start_datetime = None
+    try:
+        end_datetime = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+    except:
+        end_datetime = None
+    if dropdown_value is None:
         return go.Figure(data=[], layout=go.Layout(title='Sensor data'))
     data = []
-    for selection in value:
-        data += db_handler.fetch_sensor_data(selection)
+    for selection in dropdown_value:
+        this_data = db_handler.fetch_sensor_data(selection, start_datetime, end_datetime)
+        data += this_data
     fig = go.Figure(data=data, layout=go.Layout(title='Sensor data'))
     return fig
 
