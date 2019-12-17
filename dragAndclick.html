@@ -103,6 +103,13 @@
             drawing = false;
             console.log(points)
         }
+
+        svg.on('dblclick', function() {
+          if (firstClick == false) {
+            console.log('hi')
+          }
+        })
+
         svg.on('mousemove', function() {
             if(!drawing) return;
             var g = d3.select('g.drawPoly');
