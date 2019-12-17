@@ -41,6 +41,10 @@
         var svg = d3.select('body').append('svg')
             .attr('height', 1000)
             .attr('width', 1000);
+        var myimage = svg.append('image')
+            .attr('xlink:href', 'http://lorempixel.com/1000/1000/')
+            .attr('width',1000)
+            .attr('height',1000);
         var points = [], g;
         // behaviors
         var dragger = d3.behavior.drag()
