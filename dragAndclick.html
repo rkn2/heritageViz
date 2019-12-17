@@ -34,7 +34,9 @@
 
     <!-- Begin Javascript -->
     <script type="text/javascript">
+
       // based on http://jsfiddle.net/eZQdE/43/
+        var firstClick = true;
         var dragging = false, drawing = false, startPoint;
         var svg = d3.select('body').append('svg')
             .attr('height', 1000)
@@ -47,12 +49,16 @@
                 dragging = false;
             });
         svg.on('mouseup', function(){
+            if(firstClick !== true) {
+              return
+            }
             if(dragging) return;
             drawing = true;
             startPoint = [d3.mouse(this)[0], d3.mouse(this)[1]];
             if(svg.select('g.drawPoly').empty()) g = svg.append('g').attr('class', 'drawPoly');
             if(d3.event.target.hasAttribute('is-handle')) {
                 closePolygon();
+                firstClick = false;
                 return;
             };
             points.push(d3.mouse(this));
@@ -70,6 +76,7 @@
                 .attr('is-handle', 'true')
                 .style({cursor: 'pointer'});
             }
+
         });
         function closePolygon() {
             svg.select('g.drawPoly').remove();
@@ -108,6 +115,7 @@
                         .attr('stroke', '#53DBF3')
                         .attr('stroke-width', 1);
         })
+
         function handleDrag() { // this is how you edit things
             if(drawing) return;
             var dragCircle = d3.select(this), newPoints = [], circle;
