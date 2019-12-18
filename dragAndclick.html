@@ -30,7 +30,9 @@
   </head>
 
   <body>
-
+<!--    &lt;!&ndash; File picker &ndash;&gt;-->
+<!--    <br><br><br><br><br><br><br>-->
+<!--    <p> <input type="file" name="usrname"> <p>-->
 
     <!-- Begin Javascript -->
     <script type="text/javascript">
@@ -42,7 +44,9 @@
             .attr('height', 1000)
             .attr('width', 1000);
         var myimage = svg.append('image')
-            .attr('xlink:href', 'http://lorempixel.com/1000/1000/')
+            // .attr('xlink:href', 'http://lorempixel.com/1000/1000/')
+            //.attr('src','floorPlans/rb4.jpg')
+            .attr("xlink:href", function() {return "floorPlans/rb4.jpg"})
             .attr('width',1000)
             .attr('height',1000);
         var points = [], g;
